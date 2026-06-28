@@ -1,0 +1,115 @@
+# =====================================================================
+# YAM robot calibration / geometry.
+#
+# These are HARDWARE FACTS measured per robot + workstation (camera
+# intrinsics/extrinsics, arm base poses, table geometry, finger pad
+# geometry). They are deliberately kept OUT of the experiment config
+# (configs/*.yaml): they are not knobs a user tunes per experiment and
+# shares to reproduce a run -- they describe the physical setup.
+#
+# Loaded by yamlab/robot/spec.py (RobotSpec) and exposed as the ROBOT
+# object in yamlab/robot/yam/yam.py. Recalibrate by editing the values here.
+# =====================================================================
+
+# Finger joint positions (radians). open = gripper fully open, closed = shut.
+gripper:
+  left_finger_open_pos: -0.0475
+  left_finger_closed_pos: 0.0
+  right_finger_open_pos: -0.0475
+  right_finger_closed_pos: 0.0
+
+# Arm base poses in the world frame (from workstation geometry).
+arms:
+  left:
+    position: [0.2525, 0.305, 0.76]      # Y = 0.575 - 0.27
+    quaternion: [1.0, 0.0, 0.0, 0.0]     # wxyz
+    prim_root: LeftArm                   # scene prim under {ENV}/ (see yam_station arm prim_path)
+  right:
+    position: [0.2525, -0.305, 0.76]     # Y = 0.305 - 0.61
+    quaternion: [1.0, 0.0, 0.0, 0.0]     # wxyz
+    prim_root: RightArm
+
+# Grasp-detection thresholds (a gripper property). Per finger: contact force on
+# the target object must exceed normal_force_thresh, and (when check_pad) the
+# contact must lie on the pad band [pad_min_frac, pad_max_frac] of the tip->base
+# axis. Which object each arm grasps is per task (grasp_detect in the task YAML).
+grasp:
+  normal_force_thresh: 0.1
+  check_pad: true
+  pad_min_frac: 0.0
+  pad_max_frac: 1.0
+
+# Camera poses + pinhole intrinsics.
+# This is decoupled from the render resolution (defaults.yaml rendering:).
+# Each camera is one uniform entry. `prim_path` is its scene mount -- its parent prim
+# decides world-fixed (e.g. {ENV}/TopCamera) vs arm-mounted (under an arm link, so it
+# follows the arm). `lerobot_key` is the recorded RGB key (observation.images.<lerobot_key>).
+# `position`/`quaternion_opengl` are the offset from the prim's parent. Add or remove cameras
+# here -- the scene, observations, and dataset features follow automatically.
+cameras:
+  intrinsic_resolution: [640, 480]   # resolution the intrinsics were calibrated at (shared)
+  top:
+    prim_path: "{ENV_REGEX_NS}/TopCamera"
+    position: [0.08600512146949768, -0.008999999612569809, 1.7043205499649048]
+    quaternion_opengl: [0.68301, 0.18301, -0.18301, -0.68301]
+    intrinsics: {fx: 392.195617675781, fy: 391.722351074219, cx: 318.389434814453, cy: 237.876312255859}
+    lerobot_key: top_rgb
+  left_wrist:
+    prim_path: "{ENV_REGEX_NS}/LeftArm/arm/link_6/wrist_camera"
+    position: [-0.0004, 0.069638, 0.073063]
+    quaternion_opengl: [-0.003227, 0.002817, 0.975619, 0.219430]
+    intrinsics: {fx: 390.666, fy: 390.162, cx: 317.526, cy: 236.146}
+    lerobot_key: left_rgb
+  right_wrist:
+    prim_path: "{ENV_REGEX_NS}/RightArm/arm/link_6/wrist_camera"
+    position: [0.0, 0.069638, 0.072]
+    quaternion_opengl: [-0.003227, 0.002817, 0.975619, 0.219430]
+    intrinsics: {fx: 390.666, fy: 390.162, cx: 317.526, cy: 236.146}
+    lerobot_key: right_rgb
+
+# Table top-surface position + corner extents (world frame).
+table:
+  position: [0.6505, 0.0, 0.7517]
+  bottom_left: [0.2995, 0.55, 0.7517]    # left arm + (4.7cm front, 24.5cm left)
+  top_right: [1.0015, -0.55, 0.7517]     # left arm + (74.9cm front, 85.5cm right)
+
+# Finger contact topology for grasp detection, per finger (lf = gripper's left finger,
+# rf = right finger). For each finger:
+#   path      : finger link path within an arm articulation (the contact-sensor prim
+#               subpath; its last component is the link name)
+#   keypoints : finger pad keypoints in the finger-link frame (meters), [tip, base1, base2].
+#               Keypoint 0 is the exact fingertip; 1-2 are the base corners. The tip and the
+#               base-corner midpoint define the finger long axis, along which the grasp
+#               detector measures a contact's fractional position (0.0 = tip, 1.0 = base).
+# Single source of truth for finger naming + geometry, shared by the contact-sensor setup
+# (envs/tasks/yam_bimanual_env_cfg.py), grasp detection (robot/robot.py), and the grasp-ray
+# overlay (utils/grasp.py).
+fingers:
+  lf:
+    path: "arm/left_finger"
+    keypoints:
+      - [-0.088, 0.025, -0.045]    # tip
+      - [-0.02, 0.058, -0.048]     # base 1
+      - [-0.02, -0.008, -0.048]    # base 2
+  rf:
+    path: "arm/right_finger"
+    keypoints:
+      - [-0.025, -0.088, -0.045]   # tip
+      - [-0.058, -0.02, -0.048]    # base 1
+      - [0.008, -0.02, -0.048]     # base 2
+
+# Arm controller PD gains (a robot property, not a per-task knob). The robot ships two
+# gain sets; `default` selects which the scene builds with. Flip `default` to switch every
+# arm. Gains are stiffness (kp) / damping (kv) per actuator group.
+controller:
+  default: high_pd      # high_pd | base
+  base:
+    yam_shoulder: {stiffness: 40.0,   damping: 2.5}
+    yam_elbow:    {stiffness: 10.0,   damping: 1.0}
+    yam_wrist:    {stiffness: 10.0,   damping: 1.0}
+    yam_gripper:  {stiffness: 100.0,  damping: 10.0}
+  high_pd:
+    yam_shoulder: {stiffness: 800.0,  damping: 50.0}
+    yam_elbow:    {stiffness: 800.0,  damping: 50.0}
+    yam_wrist:    {stiffness: 30.0,   damping: 5.0}
+    yam_gripper:  {stiffness: 2000.0, damping: 100.0}

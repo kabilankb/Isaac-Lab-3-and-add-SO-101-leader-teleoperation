@@ -1,0 +1,105 @@
+# =====================================================================
+# Global default experiment configuration.
+#
+# This file holds the values common to every task. A per-task YAML in
+# configs/tasks/<task>.yaml may override any key here, and a `modes:`
+# section (here or in a task file) overrides per execution mode.
+#
+# Resolution precedence (lowest -> highest), applied by configs/loader.py:
+#   defaults (this file)
+#     < defaults.modes[mode]
+#       < tasks/<task>.yaml
+#         < tasks/<task>.yaml.modes[mode]
+#           < CLI / call-site overrides
+#
+# Robot/hardware facts (camera intrinsics & poses, arm base poses, actuator
+# gains, finger geometry, grasp-detection thresholds) are NOT here -- they live
+# in configs/robot/yam.yaml because they are fixed hardware facts, not
+# experiment knobs that users tune and share to reproduce a run.
+# =====================================================================
+
+# ---- Simulation / execution -----------------------------------------
+# dt + decimation set the control rate (control_hz = 1/dt / decimation).
+# episode_length_s is the time_out termination length. device + num_envs are
+# mode-dependent and set under `modes:` below. A physics-simple task may relax
+# dt/decimation in its task YAML (e.g. dt 1/30, decimation 1).
+sim:
+  dt: 0.00833333333333          # 1/120 s  -> 120 Hz physics
+  decimation: 4                 # 120 Hz / 4 = 30 Hz control
+  render_interval: 4
+  enable_scene_query_support: true
+  physx:
+    min_position_iteration_count: 16
+    min_velocity_iteration_count: 1
+  episode_length_s: 180.0       # time_out termination length (seconds)
+
+# ---- Rendering ------------------------------------------------------
+# Camera render output: the sensor render resolution (a per-experiment perf/quality
+# knob, layerable per task/mode and overridable via --camera_width/--camera_height) and
+# how much the recorder shrinks frames. (Camera poses and lens intrinsics are robot
+# calibration in configs/robot/yam.yaml under cameras:; only intrinsic_resolution is fixed.)
+rendering:
+  render_width: 640
+  render_height: 480
+  image_downsample_factor: 2    # recorded image resolution = render resolution / this
+
+# ---- Recording ------------------------------------------------------
+# LeRobot dataset frame trimming.
+recording:
+  discard_first_n_frames: 0
+  discard_last_n_frames: 0
+
+# ---- Robot properties (not set here) --------------------------------
+# Arm controller gains and grasp-detection thresholds are robot properties in
+# configs/robot/yam.yaml (`controller:` and `grasp:`). Which object each arm
+# grasps IS per task -- set `grasp_detect: {arm_name: [object, ...]}` in the
+# task YAML (only the listed arms get finger contact sensors).
+
+# ---- Domain randomization -------------------------------------------
+# Material + lighting randomization knobs. Whether DR is active is per-mode
+# (enable_domain_randomization below) + the --enable_domain_randomization
+# flag; materials_dir / hdris_path come from --materials_path / --hdris_path.
+# A task YAML may override any key here (deep-merged), e.g. per-object material
+# categories under materials.per_object or a narrower light range. See the
+# commented "Per-task domain-randomization override" example in
+# configs/tasks/put_pot_on_cooktop.yaml.
+domain_randomization:
+  randomize_interval_steps: 30        # re-randomize every N control steps (0 = reset only)
+  materials:
+    num_variants_per_material: 2      # preloaded texture-transform variants per base material
+    include: [all]                    # category folders to draw from ([all] = every category)
+    exclude: []
+    randomize_workstation: false
+    randomize_robot_arms: false
+    texture_rotation:    {enabled: true, range_deg: [0.0, 360.0]}
+    texture_translation: {enabled: true, range: [0.0, 100.0]}
+    color_tint:          {enabled: true, range: [0.5, 1.5]}
+    tint_workstation_and_robots: {enabled: true, range: [0.9, 1.1]}
+    # per_object: {obj_0: {include: [Wood]}, obj_1: {include: all, exclude: [Metals]}}
+  lighting:
+    dome_intensity_range: [300.0, 1200.0]
+    dome_color_temperature_range: [2000.0, 8000.0]   # Kelvin
+    hdri_rotation_range_deg: [0.0, 360.0]
+
+# ---- Per-mode overrides ---------------------------------------------
+# device + num_envs (under sim:) are mode-dependent. Teleop/replay/mimicgen run
+# on CPU (grasp raycast correctness + small per-env solves are GPU-overhead
+# bound); evaluation runs on GPU for parallel rollout throughput. A task YAML
+# may override any of these under its own `modes:` section.
+#
+# enable_domain_randomization defaults to false for every mode; turn it on per
+# run via the entry script's --enable_domain_randomization flag (which becomes a
+# CLI override layer over these defaults).
+modes:
+  teleoperation:
+    sim: {device: cpu, num_envs: 1}
+    enable_domain_randomization: false
+  replay:
+    sim: {device: cpu, num_envs: 1}
+    enable_domain_randomization: false
+  mimicgen:
+    sim: {device: cpu, num_envs: 4}
+    enable_domain_randomization: false
+  evaluation:
+    sim: {device: cuda, num_envs: 64}
+    enable_domain_randomization: false

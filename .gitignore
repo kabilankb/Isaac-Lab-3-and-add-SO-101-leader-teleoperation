@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.bak
+.DS_Store
+recorded_data/

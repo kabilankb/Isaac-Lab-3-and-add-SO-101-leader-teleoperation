@@ -1,0 +1,124 @@
+# =====================================================================
+# HangMugOnTree task config.
+#
+# Three-stage bimanual task: left arm picks the mug by the handle,
+# hands it to the right arm, which hangs it on a mug tree.
+#
+# Keys here OVERRIDE configs/defaults.yaml on conflict. Task-only
+# sections (objects, kwargs, friction, mimic_signals)
+# have no global default and are read straight from this file.
+# =====================================================================
+
+# Gym env IDs this config serves. Add your own (e.g. HangMugOnTree-v1)
+# here so the loader maps it to this file. For env-name-specific
+# overrides, add a `variants:` block keyed by the exact ID below.
+env_names:
+  - HangMugOnTree-v0
+  - HangMugOnTree-Mimic-v0
+
+# Thin mug handle needs accurate contact physics -> keep the global
+# 120 Hz / decimation 4. (Shown explicitly to document the intent; the
+# values match the global default.)
+sim:
+  dt: 0.00833333333333
+  decimation: 4
+
+# ---- Objects ---------------------------------------------------------
+# One entry per scene object (key = object name). Per object: mass (kg),
+# asset (optional default instance dir; CLI --asset overrides), randomization
+# (XY region in m, +/- yaw in degrees about the default yaw, scale range).
+# Spawn-pose center is in the task's *_manager_cfg.py. Grasp-detection targets
+# are declared under `grasp.detect` below, not here.
+objects:
+  mug:                                   # mug: 90 deg total yaw range about the 135 deg default
+    mass: 0.20
+    asset: null
+    randomization:
+      region_size: [0.32, 0.45]            # position range: bounding box (m) the object footprint must stay inside (effective center range subtracts the object size). Alt: position_range: [dx, dy] for direct +/- distance (m), no size subtraction
+      orientation_range_deg: 45            # orientation range: +/- yaw rotation (degrees)
+      scale_range: [1.0, 1.0]              # object scale multiplier [min, max]
+  mug_tree:                                   # mug tree: 30 deg total yaw range about the 15 deg default
+    mass: 5.0
+    asset: null
+    randomization:
+      region_size: [0.30, 0.30]            # position range: bounding box (m) the object footprint must stay inside (effective center range subtracts the object size). Alt: position_range: [dx, dy] for direct +/- distance (m), no size subtraction
+      orientation_range_deg: 15            # orientation range: +/- yaw rotation (degrees)
+      scale_range: [1.0, 1.0]              # object scale multiplier [min, max]
+
+# ---- Grasp detection -------------------------------------------------
+# `detect` lists, per arm, the object(s) whose grasp that arm detects. Only
+# the listed arms get their two finger contact sensors (an arm omitted/empty
+# gets none -> no wasted compute); each named object gets activate_contact_sensors.
+# Force/pad thresholds inherit from configs/robot/yam.yaml `grasp:`. The left arm picks
+# the mug and hands it to the right arm, so both arms detect mug.
+grasp_detect:
+  left_arm: [mug]
+  right_arm: [mug]
+
+# ---- Runtime kwargs forwarded to the task-env constructor -----------
+kwargs:
+  gripper_grasp_clamp_extra: 0.0075
+modes:
+  teleoperation:
+    kwargs:
+      # Gates the operator's stage-success cue; only meaningful in teleop.
+      check_gripper_release_for_hang: true
+    # Deterministic spawn-pose sequence for systematic demo collection
+    # (teleop only; mimicgen/replay/evaluation ignore it and randomize instead).
+    # Advances one step per successful save, stays on discard. pos_fraction/
+    # rot_fraction are 0..1 across each object's effective randomization range
+    # (0.5 = box center; rot 0.5 = default yaw). Both objects stay centered;
+    # the mug (mug) sweeps three yaw values.
+    pose_schedule:
+      mug:
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.16667}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.83333}}
+      mug_tree:
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+
+# ---- Asymmetric left-finger friction --------------------------------
+# Raised HIGH when the left arm first grasps the thin handle (resists
+# rotation on the few PhysX contact points), dropped LOW at handover so
+# the right arm can take the mug cleanly.
+friction:
+  left_finger_high: 100.0
+  left_finger_low: 0.5
+
+# ---- MimicGen subtask signals ---------------------------------------
+# Geometric thresholds (m) and time delays. Delays are in SOURCE STEPS
+# (30 source steps = 1 s at 30 Hz control).
+mimic_signals:
+  mug_transported_x_threshold: 0.30      # m, mug X within this of left arm base X
+  mug_at_handover_x_threshold: 0.20      # m
+  right_motion_started_delta_m: 0.04     # m, right link_6 forward displacement
+  mug_at_handover_delay: 60              # steps (2 s)
+  transport_near_end_delay: 30           # steps (1 s)
+  left_backward_done_delay: 60           # steps (2 s)
+  post_handover_settled_delay: 150       # steps (5 s)
+  right_motion_gate_delay: 60            # steps (2 s)
+  right_motion_started_window_frames: 30 # steps (1 s) rolling buffer
+  right_motion_interp_lookahead: 0       # keep 0 (see configs/tasks/hang_mug_on_tree.py)
+  right_motion_window_done_delay: 30     # steps (1 s)
+  post_hang_arm_away_delay: 15           # steps (0.5 s)
+
+# ---- Per-variant overrides (example) --------------------------------
+# Everything above is the SHARED body, applied to every ID in env_names.
+# A `variants:` block lets a single gym ID diverge -- its keys deep-merge
+# OVER the shared body for that ID only, and it can add keys the shared
+# body doesn't have or carry its own `modes:` sub-block. To activate,
+# add the new ID to env_names above and uncomment its block here.
+#
+# Example: a HangMugOnTree-v1 with a thicker handle that needs less
+# finger friction and a faster handover (a different set of mimic
+# signals than v0):
+#
+# variants:
+#   HangMugOnTree-v1:
+#     friction:
+#       left_finger_high: 60.0
+#     mimic_signals:
+#       mug_at_handover_delay: 30
+#       right_motion_started_delta_m: 0.06

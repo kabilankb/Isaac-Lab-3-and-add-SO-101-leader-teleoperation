@@ -1,0 +1,130 @@
+# =====================================================================
+# PutPotOnCooktop task config.
+#
+# Two-stage bimanual task: pick pot and place it on top of cooktop.
+#
+# Keys here OVERRIDE configs/defaults.yaml on conflict.
+# =====================================================================
+
+# Gym env IDs this config serves. Add your own (e.g. PutPotOnCooktop-v1) here.
+# For env-name-specific overrides, add a `variants:` block keyed by ID.
+env_names:
+  - PutPotOnCooktop-v0
+  - PutPotOnCooktop-Mimic-v0
+
+# ---- Objects ---------------------------------------------------------
+# One entry per scene object; the key is the object's name (used as the scene
+# cfg field, the asset-mapping key, and in task logic). Per object:
+#   mass:           kg (applied to rigid objects; omit for articulated ones)
+#   asset:          optional default instance dir; CLI --asset overrides it
+#   randomization:  XY position range + (+/- yaw degrees) + scale range
+# The spawn-pose center stays in the task's *_manager_cfg.py.
+# Grasp-detection targets are declared under `grasp.detect` below, not here.
+objects:
+  pot:                                   # picked object
+    mass: 1.3
+    asset: null
+    randomization:
+      region_size: [0.38, 0.50]            # position range, mode 1: bounding box (m) the object footprint must stay inside (effective center range subtracts the object size)
+      # position_range: [0.19, 0.25]       # position range, mode 2: direct +/- distance (m) the object center may move (no size subtraction); uncomment and remove region_size to use
+      orientation_range_deg: 37.5          # orientation range: +/- yaw rotation (degrees)
+      scale_range: [1.0, 1.0]              # object scale multiplier [min, max]
+  cooktop:                                   # base object
+    mass: 5.0
+    asset: null
+    randomization:
+      region_size: [0.40, 0.30]            # position range, mode 1: bounding box (m) the object footprint must stay inside (effective center range subtracts the object size)
+      # position_range: [0.20, 0.15]       # position range, mode 2: direct +/- distance (m) the object center may move (no size subtraction); uncomment and remove region_size to use
+      orientation_range_deg: 5             # orientation range: +/- yaw rotation (degrees)
+      scale_range: [1.0, 1.0]              # object scale multiplier [min, max]
+
+# ---- Grasp detection -------------------------------------------------
+# `detect` lists, per arm, the object(s) whose grasp that arm detects. Only
+# the arms listed here get their two finger contact sensors created (an arm
+# omitted or given an empty list gets none -> no wasted compute), and each
+# named object gets activate_contact_sensors so the finger<->object contact
+# force is reported. Force/pad thresholds inherit from configs/robot/yam.yaml `grasp:`.
+# Both arms pick pot here (bimanual pick).
+grasp_detect:
+  left_arm: [pot]
+  right_arm: [pot]
+
+# ---- Runtime kwargs forwarded to the task-env constructor -----------
+kwargs:
+  gripper_grasp_clamp_extra: 0.0075
+modes:
+  teleoperation:
+    kwargs:
+      pick_by_two_hands: true                # require both arms for the pick
+      check_gripper_release_for_ontop: true  # require gripper release for stage 2
+    # Deterministic spawn-pose sequence for systematic demo collection
+    # (teleop only; mimicgen/replay/evaluation ignore it and randomize instead).
+    # Advances one step per successful save, stays on discard. pos_fraction/
+    # rot_fraction are 0..1 across each object's effective randomization range
+    # (0.5 = box center; rot 0.5 = default yaw). pot sweeps a 3x3 grid of
+    # lateral position x yaw; cooktop stays centered.
+    pose_schedule:
+      pot:
+        - {pos_fraction: [0.5, 0.15], rot_fraction: {yaw: 0.125}}
+        - {pos_fraction: [0.5, 0.15], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.15], rot_fraction: {yaw: 0.875}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.125}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.875}}
+        - {pos_fraction: [0.5, 0.85], rot_fraction: {yaw: 0.125}}
+        - {pos_fraction: [0.5, 0.85], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.85], rot_fraction: {yaw: 0.875}}
+      cooktop:
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+        - {pos_fraction: [0.5, 0.5], rot_fraction: {yaw: 0.5}}
+
+# ---- Stage-success thresholds ---------------------------------------
+success:
+  pick_lift_threshold_m: 0.05              # pot lift above initial resting height
+  pick_required_consecutive_steps: 8
+  ontop_height_tolerance_m: 0.02           # +/- about expected resting height
+  ontop_orientation_tolerance_rad: 0.2     # pot within this of upright
+  ontop_required_consecutive_steps_teleop: 8
+  ontop_required_consecutive_steps_eval: 30
+# Note: XY alignment tolerance is computed at runtime from asset sizes.
+
+# ---- Per-task domain-randomization override (example) ---------------
+# Overrides configs/defaults.yaml `domain_randomization:` for this task only
+# (deep-merged: keys here win, everything else inherits the global defaults).
+# Per-object material categories go under materials.per_object: include is a
+# list of category folder names or "all"; exclude drops categories after
+# include. Uncomment to use:
+#
+# domain_randomization:
+#   materials:
+#     num_variants_per_material: 4               # more texture variants for this task
+#     per_object:
+#       pot: {include: [Wood, Plastics]}       # picked object: wood/plastic only
+#       cooktop: {include: all, exclude: [Metals]} # base object: any category except metals
+#   lighting:
+#     dome_intensity_range: [400.0, 900.0]       # narrower light range than the global default
+
+# ---- Per-variant overrides (example) --------------------------------
+# Everything above is the SHARED body, applied to every ID in env_names.
+# A `variants:` block lets a single gym ID diverge -- its keys deep-merge
+# OVER the shared body for that ID only, and it can add keys the shared
+# body doesn't have or carry its own `modes:` sub-block. To activate,
+# add the new ID to env_names above and uncomment its block here.
+#
+# Example: a single-arm PutPotOnCooktop-v1 (vs. the bimanual v0). It drops the
+# two-hand pick requirement, relaxes the pick step count, and would pair
+# with its own single-arm mimic env defining different subtask signals:
+#
+# variants:
+#   PutPotOnCooktop-v1:
+#     kwargs:
+#       pick_by_two_hands: false
+#     success:
+#       pick_required_consecutive_steps: 4
