@@ -12,7 +12,7 @@ from abc import abstractmethod
 from typing import Dict, Any
 
 from isaaclab.envs import ManagerBasedRLEnv
-from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
+from isaaclab_physx.sim.spawners.materials import PhysxRigidBodyMaterialCfg as RigidBodyMaterialCfg
 from isaaclab.sim.utils import bind_physics_material
 
 from yamlab.envs.manipulation_env import ManipulationEnv
@@ -43,13 +43,14 @@ def _apply_resolved_config(cfg: YamBimanualEnvCfg, cfg_yaml: dict) -> None:
         cfg.sim.render_interval = int(sim_yaml['render_interval'])
     if 'enable_scene_query_support' in sim_yaml:
         cfg.sim.enable_scene_query_support = bool(sim_yaml['enable_scene_query_support'])
+        cfg.sim.physics.enable_scene_query_support = cfg.sim.enable_scene_query_support
     if 'decimation' in sim_yaml:
         cfg.decimation = int(sim_yaml['decimation'])
     physx_yaml = sim_yaml.get('physx', {})
     if 'min_position_iteration_count' in physx_yaml:
-        cfg.sim.physx.min_position_iteration_count = int(physx_yaml['min_position_iteration_count'])
+        cfg.sim.physics.min_position_iteration_count = int(physx_yaml['min_position_iteration_count'])
     if 'min_velocity_iteration_count' in physx_yaml:
-        cfg.sim.physx.min_velocity_iteration_count = int(physx_yaml['min_velocity_iteration_count'])
+        cfg.sim.physics.min_velocity_iteration_count = int(physx_yaml['min_velocity_iteration_count'])
     if 'device' in sim_yaml:
         cfg.sim.device = sim_yaml['device']
     if 'episode_length_s' in sim_yaml:
@@ -352,9 +353,15 @@ class YamBimanualEnv(ManipulationEnv):
             self.grasp_ray_visualizer = GraspRayVisualizer(
                 self, target_objects=getattr(self.cfg, "_object_names", [])
             )
-            self.sim.add_render_callback(
-                "grasp_ray_overlay", lambda event: self.grasp_ray_visualizer.update()
-            )
+            _overlay_cb = lambda event: self.grasp_ray_visualizer.update()
+            if hasattr(self.sim, "add_render_callback"):
+                self.sim.add_render_callback("grasp_ray_overlay", _overlay_cb)
+            else:
+                # Isaac Lab 3.0-beta: SimulationContext.render() still invokes _render_callbacks
+                # after every render, but the public add_render_callback() is gone.
+                if getattr(self.sim, "_render_callbacks", None) is None:
+                    self.sim._render_callbacks = {}
+                self.sim._render_callbacks["grasp_ray_overlay"] = _overlay_cb
 
         # Clamp gripper command when a grasp is detected to avoid over-closing
         # (~1 cm extra beyond actual finger position is allowed).
@@ -381,8 +388,8 @@ class YamBimanualEnv(ManipulationEnv):
             for obj_name in obj_schedule.keys():
                 if obj_name in self.scene.keys():
                     obj = self.scene[obj_name]
-                    ds = obj.data.default_root_state
-                    qw, qx, qy, qz = ds[0, 3].item(), ds[0, 4].item(), ds[0, 5].item(), ds[0, 6].item()
+                    ds = obj.data.default_root_pose.torch  # (N, 7) [pos, quat xyzw]
+                    qx, qy, qz, qw = ds[0, 3].item(), ds[0, 4].item(), ds[0, 5].item(), ds[0, 6].item()
                     default_yaw = math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz))
                     self._pose_schedule_init_state[obj_name] = {
                         "pos_x": ds[0, 0].item(),
@@ -612,8 +619,8 @@ class YamBimanualEnv(ManipulationEnv):
         if self.enable_gripper_grasp_clamp:
             left_arm_ref = self.scene["left_arm"]
             right_arm_ref = self.scene["right_arm"]
-            left_actual = left_arm_ref.data.joint_pos[:, arm_gripper_joint_idx:arm_gripper_joint_idx + 1]
-            right_actual = right_arm_ref.data.joint_pos[:, arm_gripper_joint_idx:arm_gripper_joint_idx + 1]
+            left_actual = left_arm_ref.data.joint_pos.torch[:, arm_gripper_joint_idx:arm_gripper_joint_idx + 1]
+            right_actual = right_arm_ref.data.joint_pos.torch[:, arm_gripper_joint_idx:arm_gripper_joint_idx + 1]
 
             left_grasping, right_grasping = self.robot.is_grasping()
 
@@ -657,8 +664,8 @@ class YamBimanualEnv(ManipulationEnv):
         right_arm = self.scene["right_arm"]
         left_finger_pos = actions[:, left_gripper_idx:left_gripper_idx + 1]
         right_finger_pos = actions[:, right_gripper_idx:right_gripper_idx + 1]
-        left_arm.set_joint_position_target(left_finger_pos.expand(-1, 1), joint_ids=[left_arm.joint_names.index(layout.MIRROR_JOINT)])
-        right_arm.set_joint_position_target(right_finger_pos.expand(-1, 1), joint_ids=[right_arm.joint_names.index(layout.MIRROR_JOINT)])
+        left_arm.set_joint_position_target_index(target=left_finger_pos.expand(-1, 1), joint_ids=[left_arm.joint_names.index(layout.MIRROR_JOINT)])
+        right_arm.set_joint_position_target_index(target=right_finger_pos.expand(-1, 1), joint_ids=[right_arm.joint_names.index(layout.MIRROR_JOINT)])
 
         obs_dict, reward, terminated, truncated, info = super().step(actions)
 

@@ -94,7 +94,7 @@ class GraspRayVisualizer:
             torch.Tensor: Keypoints [tip, base1, base2] in the world frame, shape (3, 3).
         """
         idx = arm.data.body_names.index(body_name)
-        pose = arm.data.body_link_pose_w[env_id, idx, :]   # [pos(3), quat wxyz(4)]
+        pose = arm.data.body_link_pose_w.torch[env_id, idx, :]   # [pos(3), quat xyzw(4)]
         kp = self._kp[finger_key]
         return pose[:3].unsqueeze(0) + quat_apply(pose[3:].unsqueeze(0).expand(kp.shape[0], 4), kp)
 
@@ -138,7 +138,8 @@ class GraspRayVisualizer:
         axis = torch.linalg.cross(self._z_axis, d)
         s = torch.linalg.norm(axis)
         if s < 1e-6:   # parallel / anti-parallel
-            return torch.tensor([1.0, 0, 0, 0] if cos_a > 0 else [0, 1.0, 0, 0], device=self.device)
+            # xyzw: identity, or 180 deg about X when d points along -Z.
+            return torch.tensor([0, 0, 0, 1.0] if cos_a > 0 else [1.0, 0, 0, 0], device=self.device)
         return quat_from_angle_axis(torch.atan2(s, cos_a).unsqueeze(0), (axis / s).unsqueeze(0))[0]
 
     def update(self, env_id: int = 0):

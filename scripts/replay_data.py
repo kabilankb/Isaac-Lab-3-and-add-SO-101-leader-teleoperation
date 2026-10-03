@@ -181,14 +181,15 @@ def reset_scene_to_state_safe(scene, state, env_ids, is_relative=False):
             root_pose = asset_state["root_pose"].clone()
             if is_relative:
                 root_pose[:, :3] += scene.env_origins[env_ids_for_indexing]
-            # Pass tensor version for PhysX API compatibility
-            articulation.write_root_pose_to_sim(root_pose, env_ids=env_ids_for_physx)
+            # Isaac Lab 3 index-variant writes (partial data for env_ids).
+            articulation.write_root_pose_to_sim_index(root_pose=root_pose, env_ids=env_ids_for_physx)
             # Joint positions (skip velocities)
             joint_position = asset_state["joint_position"].clone()
             joint_velocity = torch.zeros_like(joint_position)  # Zero velocity
-            articulation.write_joint_state_to_sim(joint_position, joint_velocity, env_ids=env_ids_for_physx)
-            articulation.set_joint_position_target(joint_position, env_ids=env_ids_for_physx)
-            articulation.set_joint_velocity_target(joint_velocity, env_ids=env_ids_for_physx)
+            articulation.write_joint_position_to_sim_index(position=joint_position, env_ids=env_ids_for_physx)
+            articulation.write_joint_velocity_to_sim_index(velocity=joint_velocity, env_ids=env_ids_for_physx)
+            articulation.set_joint_position_target_index(target=joint_position, env_ids=env_ids_for_physx)
+            articulation.set_joint_velocity_target_index(target=joint_velocity, env_ids=env_ids_for_physx)
     
     # Restore deformable objects (positions only, skip velocities)
     if "deformable_object" in state:
@@ -199,7 +200,7 @@ def reset_scene_to_state_safe(scene, state, env_ids, is_relative=False):
             nodal_position = asset_state["nodal_position"].clone()
             if is_relative:
                 nodal_position[:, :3] += scene.env_origins[env_ids_for_indexing]
-            deformable_object.write_nodal_pos_to_sim(nodal_position, env_ids=env_ids_for_physx)
+            deformable_object.write_nodal_pos_to_sim_index(nodal_pos=nodal_position, env_ids=env_ids_for_physx)
             # Skip velocity setting for deformable objects
     
     # Restore rigid objects (poses only, skip velocities to avoid kinematic body errors)
@@ -211,7 +212,7 @@ def reset_scene_to_state_safe(scene, state, env_ids, is_relative=False):
             root_pose = asset_state["root_pose"].clone()
             if is_relative:
                 root_pose[:, :3] += scene.env_origins[env_ids_for_indexing]
-            rigid_object.write_root_pose_to_sim(root_pose, env_ids=env_ids_for_physx)
+            rigid_object.write_root_pose_to_sim_index(root_pose=root_pose, env_ids=env_ids_for_physx)
             # Skip velocity setting for rigid objects (they may be kinematic when grasped)
     
     # Restore surface grippers

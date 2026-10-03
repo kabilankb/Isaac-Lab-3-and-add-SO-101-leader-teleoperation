@@ -14,6 +14,8 @@ from pathlib import Path
 
 import yaml
 
+from yamlab.utils.lab3 import quat_wxyz_to_xyzw
+
 _ROBOT_CFG_DIR = os.path.join(Path(__file__).resolve().parent.parent, "configs", "robot")
 
 # A finger contact sensor's scene attribute is "<arm_name>_<finger_key>" + this suffix
@@ -120,9 +122,10 @@ class RobotSpec:
             side (str): ``"left"`` or ``"right"``.
 
         Returns:
-            tuple[float, float, float, float]: Quaternion ``(w, x, y, z)``.
+            tuple[float, float, float, float]: Quaternion ``(x, y, z, w)`` (Isaac Lab 3 order;
+            ``yam.yaml`` stores it as ``(w, x, y, z)``).
         """
-        return tuple(self.raw["arms"][side]["quaternion"])
+        return quat_wxyz_to_xyzw(tuple(self.raw["arms"][side]["quaternion"]))
 
     def arm_prim_root(self, arm_name: str) -> str:
         """Scene prim-root name for an arm instance.
@@ -196,9 +199,10 @@ class RobotSpec:
             name (str): ``"top"``, ``"left_wrist"``, or ``"right_wrist"``.
 
         Returns:
-            tuple[float, float, float, float]: Quaternion ``(w, x, y, z)``.
+            tuple[float, float, float, float]: Quaternion ``(x, y, z, w)`` (Isaac Lab 3 order;
+            ``yam.yaml`` stores it as ``(w, x, y, z)``).
         """
-        return tuple(self.raw["cameras"][name]["quaternion_opengl"])
+        return quat_wxyz_to_xyzw(tuple(self.raw["cameras"][name]["quaternion_opengl"]))
 
     def camera_intrinsics(self, name: str) -> dict:
         """Pinhole intrinsics of a camera.

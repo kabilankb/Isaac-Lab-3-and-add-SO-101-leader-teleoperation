@@ -164,12 +164,12 @@ class HangMugOnTreeManager(YamBimanualEnv):
             Dict with mug/mug_tree position and orientation, episode count, and intermediate success.
         """
         mug = self.scene["mug"]
-        mug_pos = mug.data.root_pos_w[0] if hasattr(mug.data, 'root_pos_w') else torch.zeros(3)
-        mug_quat = mug.data.root_quat_w[0] if hasattr(mug.data, 'root_quat_w') else torch.tensor([1, 0, 0, 0])
+        mug_pos = mug.data.root_pos_w.torch[0] if hasattr(mug.data, 'root_pos_w') else torch.zeros(3)
+        mug_quat = mug.data.root_quat_w.torch[0] if hasattr(mug.data, 'root_quat_w') else torch.tensor([0, 0, 0, 1])  # xyzw identity
 
         mug_tree = self.scene["mug_tree"]
-        mug_tree_pos = mug_tree.data.root_pos_w[0] if hasattr(mug_tree.data, 'root_pos_w') else torch.zeros(3)
-        mug_tree_quat = mug_tree.data.root_quat_w[0] if hasattr(mug_tree.data, 'root_quat_w') else torch.tensor([1, 0, 0, 0])
+        mug_tree_pos = mug_tree.data.root_pos_w.torch[0] if hasattr(mug_tree.data, 'root_pos_w') else torch.zeros(3)
+        mug_tree_quat = mug_tree.data.root_quat_w.torch[0] if hasattr(mug_tree.data, 'root_quat_w') else torch.tensor([0, 0, 0, 1])  # xyzw identity
 
         stage1_success = self.stage1_success[0].item()
         stage2_success = self.stage2_success[0].item()
@@ -252,7 +252,7 @@ class HangMugOnTreeManager(YamBimanualEnv):
                 self._friction_released[newly_release] = True
 
             mug = self.scene["mug"]
-            mug_z = mug.data.root_pos_w[:, 2]
+            mug_z = mug.data.root_pos_w.torch[:, 2]
             elevated = mug_z > (self.mug_init_z + 0.05)  # 5cm above resting
 
             handover_success = right_grasping & elevated & (~left_grasping)
@@ -282,7 +282,7 @@ class HangMugOnTreeManager(YamBimanualEnv):
 
             mask_check = self.stage2_success & ~self.stage3_success
 
-            mug_pos = self.scene["mug"].data.root_pos_w
+            mug_pos = self.scene["mug"].data.root_pos_w.torch
 
             # Record the mug position as stability anchor on the first frame of each hang attempt.
             # Only the Z component is checked; XY drift from dangling is ignored.

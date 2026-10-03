@@ -175,12 +175,12 @@ class PutPotOnCooktopManager(YamBimanualEnv):
             Dictionary with object poses, episode count, and per-stage success flags.
         """
         pot = self.scene["pot"]
-        pot_pos = pot.data.root_pos_w[0] if hasattr(pot.data, 'root_pos_w') else torch.zeros(3)
-        pot_quat = pot.data.root_quat_w[0] if hasattr(pot.data, 'root_quat_w') else torch.tensor([1, 0, 0, 0])
+        pot_pos = pot.data.root_pos_w.torch[0] if hasattr(pot.data, 'root_pos_w') else torch.zeros(3)
+        pot_quat = pot.data.root_quat_w.torch[0] if hasattr(pot.data, 'root_quat_w') else torch.tensor([0, 0, 0, 1])  # xyzw identity
 
         cooktop = self.scene["cooktop"]
-        cooktop_pos = cooktop.data.root_pos_w[0] if hasattr(cooktop.data, 'root_pos_w') else torch.zeros(3)
-        cooktop_quat = cooktop.data.root_quat_w[0] if hasattr(cooktop.data, 'root_quat_w') else torch.tensor([1, 0, 0, 0])
+        cooktop_pos = cooktop.data.root_pos_w.torch[0] if hasattr(cooktop.data, 'root_pos_w') else torch.zeros(3)
+        cooktop_quat = cooktop.data.root_quat_w.torch[0] if hasattr(cooktop.data, 'root_quat_w') else torch.tensor([0, 0, 0, 1])  # xyzw identity
 
         stage1_success = self.stage1_success[0].item()
         stage2_success = self.stage2_success[0].item()

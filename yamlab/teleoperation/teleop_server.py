@@ -367,7 +367,7 @@ class BimanualRPCServer:
             np.ndarray: Joint positions, float32 array of shape (6,).
         """
         left_arm = self.task_env.scene["left_arm"]
-        return left_arm.data.joint_pos[0, :6].cpu().numpy()  # First 6 joints (arm only)
+        return left_arm.data.joint_pos.torch[0, :6].cpu().numpy()  # First 6 joints (arm only)
 
     def get_right_joint_pos(self):
         """Read the right arm's six joint positions (arm DOF only, gripper excluded).
@@ -376,7 +376,7 @@ class BimanualRPCServer:
             np.ndarray: Joint positions, float32 array of shape (6,).
         """
         right_arm = self.task_env.scene["right_arm"]
-        return right_arm.data.joint_pos[0, :6].cpu().numpy()  # First 6 joints (arm only)
+        return right_arm.data.joint_pos.torch[0, :6].cpu().numpy()  # First 6 joints (arm only)
 
     def get_left_gripper_pos(self):
         """Read the left gripper state as a binary value (0=open, 1=close).
@@ -390,7 +390,7 @@ class BimanualRPCServer:
         """
         left_arm = self.task_env.scene["left_arm"]
         # Get left finger position to determine gripper state
-        left_finger_pos = left_arm.data.joint_pos[0, YamActionLayout.ARM_GRIPPER_JOINT_INDEX].cpu().numpy()
+        left_finger_pos = left_arm.data.joint_pos.torch[0, YamActionLayout.ARM_GRIPPER_JOINT_INDEX].cpu().numpy()
         
         # Use YAM constants to determine open/close state
         # Binary action convention: 0=open, 1=close
@@ -409,7 +409,7 @@ class BimanualRPCServer:
         """
         right_arm = self.task_env.scene["right_arm"]
         # Get the finger position to determine gripper state
-        right_finger_pos = right_arm.data.joint_pos[0, YamActionLayout.ARM_GRIPPER_JOINT_INDEX].cpu().numpy()
+        right_finger_pos = right_arm.data.joint_pos.torch[0, YamActionLayout.ARM_GRIPPER_JOINT_INDEX].cpu().numpy()
         
         # Use YAM constants to determine open/close state
         # Binary action convention: 0=open, 1=close

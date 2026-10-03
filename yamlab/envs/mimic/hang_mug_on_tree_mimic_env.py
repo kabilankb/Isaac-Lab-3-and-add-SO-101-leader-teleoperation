@@ -61,8 +61,8 @@ def make_hang_mug_on_tree_mimic_env(**kwargs):
             physics_kwargs['enable_self_collisions'] = kwargs.pop('enable_self_collisions')
 
         for key, value in physics_kwargs.items():
-            if hasattr(cfg.sim.physx, key):
-                setattr(cfg.sim.physx, key, value)
+            if hasattr(cfg.sim.physics, key):
+                setattr(cfg.sim.physics, key, value)
 
         config_only_keys = [
             'assets_instance_paths', 'objects_randomization',
@@ -277,12 +277,12 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
         if gate_just_opened.any():
             right_arm = self.scene["right_arm"]
             gripper_body_idx = right_arm.body_names.index("link_6")
-            current_xyz_seed = right_arm.data.body_pos_w[:, gripper_body_idx, :3]
+            current_xyz_seed = right_arm.data.body_pos_w.torch[:, gripper_body_idx, :3]
             self._right_eef_xyz_history[gate_just_opened] = (
                 current_xyz_seed[gate_just_opened].unsqueeze(1).expand(-1, RIGHT_MOTION_STARTED_WINDOW_FRAMES, -1)
             )
             joint2_idx = right_arm.joint_names.index("joint2")
-            current_j2_seed = right_arm.data.joint_pos[:, joint2_idx]
+            current_j2_seed = right_arm.data.joint_pos.torch[:, joint2_idx]
             self._right_joint2_history[gate_just_opened] = (
                 current_j2_seed[gate_just_opened].unsqueeze(1).expand(-1, RIGHT_MOTION_STARTED_WINDOW_FRAMES)
             )
@@ -369,7 +369,7 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
             torch.Tensor: bool, shape (num_envs,).
         """
         mug = self.scene["mug"]
-        mug_z = mug.data.root_pos_w[:, 2]
+        mug_z = mug.data.root_pos_w.torch[:, 2]
         lifted = (mug_z - self.mug_init_z) > 0.05
         return lifted
 
@@ -383,7 +383,7 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
             torch.Tensor: bool, shape (num_envs,).
         """
         mug = self.scene["mug"]
-        mug_x = mug.data.root_pos_w[:, 0]
+        mug_x = mug.data.root_pos_w.torch[:, 0]
         left_arm_x = ROBOT.arm_position('left')[0]
         return torch.abs(mug_x - left_arm_x) < MUG_AT_HANDOVER_X_THRESHOLD
 
@@ -403,10 +403,10 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
         """
         right_arm = self.scene["right_arm"]
         gripper_body_idx = right_arm.body_names.index("link_6")
-        current_xyz = right_arm.data.body_pos_w[:, gripper_body_idx, :3]  # (num_envs, 3)
+        current_xyz = right_arm.data.body_pos_w.torch[:, gripper_body_idx, :3]  # (num_envs, 3)
 
         joint2_idx = right_arm.joint_names.index("joint2")
-        current_j2 = right_arm.data.joint_pos[:, joint2_idx]  # (num_envs,)
+        current_j2 = right_arm.data.joint_pos.torch[:, joint2_idx]  # (num_envs,)
 
         # Read oldest values before rolling so the comparison spans the full window.
         oldest_xyz = self._right_eef_xyz_history[:, 0, :].clone()
@@ -437,7 +437,7 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
         )
 
         mug = self.scene["mug"]
-        mug_z = mug.data.root_pos_w[:, 2]
+        mug_z = mug.data.root_pos_w.torch[:, 2]
         elevated = (mug_z - self.mug_init_z) > 0.05
 
         return right_grasping & (~left_grasping) & elevated
@@ -456,13 +456,13 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
         )
 
         mug = self.scene["mug"]
-        mug_pos = mug.data.root_pos_w
+        mug_pos = mug.data.root_pos_w.torch
         mug_z = mug_pos[:, 2]
         elevated = (mug_z - self.mug_init_z) > 0.05
 
         left_arm = self.scene["left_arm"]
         left_eef_idx = left_arm.num_bodies - 1
-        left_eef_pos = left_arm.data.body_pos_w[:, left_eef_idx, :]
+        left_eef_pos = left_arm.data.body_pos_w.torch[:, left_eef_idx, :]
         left_eef_dist = torch.norm(left_eef_pos - mug_pos, dim=-1)
         left_clear = left_eef_dist > 0.10
 
@@ -479,8 +479,8 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
         mug = self.scene["mug"]
         mug_tree = self.scene["mug_tree"]
 
-        mug_pos = mug.data.root_pos_w
-        tree_pos = mug_tree.data.root_pos_w
+        mug_pos = mug.data.root_pos_w.torch
+        tree_pos = mug_tree.data.root_pos_w.torch
 
         xy_dist = torch.norm(mug_pos[:, :2] - tree_pos[:, :2], dim=-1)
         xy_aligned = xy_dist < self.hang_xy_tolerance
@@ -528,11 +528,11 @@ class HangMugOnTreeMimicEnv(HangMugOnTreeManager, YamMimicEnv):
             obj = self.scene[obj_name]
 
             if isinstance(env_ids, slice):
-                obj_pos = obj.data.root_pos_w
-                obj_quat = obj.data.root_quat_w
+                obj_pos = obj.data.root_pos_w.torch
+                obj_quat = obj.data.root_quat_w.torch
             else:
-                obj_pos = obj.data.root_pos_w[env_ids]
-                obj_quat = obj.data.root_quat_w[env_ids]
+                obj_pos = obj.data.root_pos_w.torch[env_ids]
+                obj_quat = obj.data.root_quat_w.torch[env_ids]
 
             object_poses[obj_name] = PoseUtils.make_pose(
                 obj_pos,

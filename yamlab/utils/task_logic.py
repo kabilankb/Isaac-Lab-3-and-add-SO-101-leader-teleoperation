@@ -33,7 +33,7 @@ def check_pick_success(
         Boolean tensor of shape (num_envs,).
     """
     obj = env.scene[asset_cfg.name]
-    obj_height = obj.data.root_pos_w[:, 2]
+    obj_height = obj.data.root_pos_w.torch[:, 2]
     height_success = (obj_height - init_obj_height) > pick_threshold
 
     if not check_contact:
@@ -93,12 +93,12 @@ def check_ontop_success(
         Boolean tensor of shape (num_envs,).
     """
     pot = env.scene[pot_cfg.name]
-    pot_pos = pot.data.root_pos_w
+    pot_pos = pot.data.root_pos_w.torch
     pot_z = pot_pos[:, 2]
-    pot_quat = pot.data.root_quat_w
+    pot_quat = pot.data.root_quat_w.torch
 
     cooktop = env.scene[cooktop_cfg.name]
-    cooktop_pos = cooktop.data.root_pos_w
+    cooktop_pos = cooktop.data.root_pos_w.torch
     cooktop_z = cooktop_pos[:, 2]
 
     xy_distance = torch.norm(pot_pos[:, :2] - cooktop_pos[:, :2], dim=1)
@@ -108,7 +108,7 @@ def check_ontop_success(
     at_ontop_height = torch.abs(pot_z - expected_pot_z) < height_tolerance
 
     if orientation_tolerance is not None:
-        qx, qy = pot_quat[:, 1], pot_quat[:, 2]
+        qx, qy = pot_quat[:, 0], pot_quat[:, 1]  # Isaac Lab 3 quaternions are (x, y, z, w)
         z_axis_z = 1 - 2 * (qx**2 + qy**2)
         orientation_error = torch.acos(torch.clamp(torch.abs(z_axis_z), 0, 1))
         ontop_success = xy_aligned & at_ontop_height & (orientation_error < orientation_tolerance)
@@ -170,11 +170,11 @@ def check_hang_success(
         Boolean tensor of shape (num_envs,).
     """
     mug = env.scene[mug_cfg.name]
-    mug_pos = mug.data.root_pos_w
+    mug_pos = mug.data.root_pos_w.torch
     mug_z = mug_pos[:, 2]
 
     tree = env.scene[tree_cfg.name]
-    tree_pos = tree.data.root_pos_w
+    tree_pos = tree.data.root_pos_w.torch
 
     xy_distance = torch.norm(mug_pos[:, :2] - tree_pos[:, :2], dim=1)
     xy_aligned = xy_distance < xy_tolerance
@@ -218,7 +218,7 @@ def check_obj_below_table(env, asset_cfg: SceneEntityCfg, table_z: float, margin
         Boolean tensor of shape (num_envs,).
     """
     asset = env.scene[asset_cfg.name]
-    return asset.data.root_pos_w[:, 2] < (table_z - margin)
+    return asset.data.root_pos_w.torch[:, 2] < (table_z - margin)
 
 
 def compute_sparse_hang_reward(env) -> torch.Tensor:

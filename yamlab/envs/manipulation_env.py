@@ -16,6 +16,7 @@ from isaaclab.envs import ManagerBasedRLEnv
 
 from yamlab.utils.recorders import ManualControlRecorderManager, LeRobotRecorderManager
 from yamlab.utils.transforms import euler2quat
+from yamlab.utils.lab3 import quat_wxyz_to_xyzw
 
 
 class ManipulationEnv(ManagerBasedRLEnv):
@@ -27,9 +28,9 @@ class ManipulationEnv(ManagerBasedRLEnv):
     """
 
     def _apply_scheduled_poses_to_default_state(self):
-        """Write the current scheduled poses into each object's default_root_state.
+        """Write the current scheduled poses into each object's default_root_pose.
 
-        Modifies default_root_state tensors so that the reset event uses the scheduled
+        Modifies default_root_pose tensors so that the reset event uses the scheduled
         pose as the base (randomization is disabled for scheduled objects). Supports
         both absolute (pos/rot) and fractional (pos_fraction/rot_fraction) entries,
         where 0.0/1.0 map to the negative/positive end of the effective randomization
@@ -56,8 +57,8 @@ class ManipulationEnv(ManagerBasedRLEnv):
 
             obj = self.scene[obj_name]
 
-            # State layout: [pos_x, pos_y, pos_z, quat_w, quat_x, quat_y, quat_z, vel...]
-            default_state = obj.data.default_root_state.clone()
+            # Pose layout (Isaac Lab 3): [pos_x, pos_y, pos_z, quat_x, quat_y, quat_z, quat_w]
+            default_state = obj.data.default_root_pose.torch.clone()
 
             # Only x and y are applied; z is derived from asset height at reset time.
             if "pos" in pose:
@@ -84,11 +85,9 @@ class ManipulationEnv(ManagerBasedRLEnv):
                     quat = euler2quat(rot["roll"], rot["pitch"], rot["yaw"])
                     quat = quat.to(self.device)
                 else:
-                    quat = torch.tensor(rot, device=self.device, dtype=torch.float32)
-                default_state[:, 3] = quat[0]  # w
-                default_state[:, 4] = quat[1]  # x
-                default_state[:, 5] = quat[2]  # y
-                default_state[:, 6] = quat[3]  # z
+                    # YAML quaternions are documented as [w, x, y, z].
+                    quat = quat_wxyz_to_xyzw(torch.tensor(rot, device=self.device, dtype=torch.float32))
+                default_state[:, 3:7] = quat
             elif "rot_fraction" in pose:
                 rot_fraction = pose["rot_fraction"]
                 ranges = effective_ranges.get(obj_name, {})
@@ -100,12 +99,10 @@ class ManipulationEnv(ManagerBasedRLEnv):
                 actual_yaw = default_yaw + yaw_offset
                 quat = euler2quat(0.0, 0.0, math.degrees(actual_yaw))
                 quat = quat.to(self.device)
-                default_state[:, 3] = quat[0]  # w
-                default_state[:, 4] = quat[1]  # x
-                default_state[:, 5] = quat[2]  # y
-                default_state[:, 6] = quat[3]  # z
+                default_state[:, 3:7] = quat
 
-            obj.data.default_root_state[:] = default_state
+            # default_root_state is a read-only concatenation in Lab 3; write the pose buffer.
+            obj.data.default_root_pose.torch[:] = default_state
 
     def get_pose_schedule_info(self) -> Dict[str, Any]:
         """Return current pose schedule status.

@@ -197,9 +197,16 @@ def drop_unused_trajectory_buffers():
     ``len(states) > 0`` gate and success accumulation keep working; ``actions`` (which
     is concatenated downstream) and ``success`` are left untouched. Idempotent.
     """
+    import inspect
+
     from isaaclab_mimic.datagen.waypoint import MultiWaypoint
 
     if getattr(MultiWaypoint.execute, "_dc_drops_buffers", False):
+        return
+    # Isaac Lab 3 fixed this upstream: execute() returns only the success bool and the generator
+    # no longer accumulates states/observations, so there is nothing to drop (and wrapping the
+    # bool result would break it).
+    if "states=[state]" not in inspect.getsource(MultiWaypoint.execute):
         return
 
     _orig_execute = MultiWaypoint.execute

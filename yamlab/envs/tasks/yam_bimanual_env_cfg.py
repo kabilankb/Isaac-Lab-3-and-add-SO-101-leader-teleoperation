@@ -12,6 +12,7 @@ from typing import Optional, List
 
 import os
 import isaaclab.sim as sim_utils
+from isaaclab_physx.physics import PhysxCfg
 import isaaclab.envs.mdp as mdp
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
@@ -138,9 +139,10 @@ class YamBimanualEnvCfg(ManipulationEnvCfg):
         render_interval=4,
         enable_scene_query_support=True,
         device="cpu",
-        physx=sim_utils.PhysxCfg(
+        physics=PhysxCfg(
             min_position_iteration_count=16,
             min_velocity_iteration_count=1,
+            enable_scene_query_support=True,
         ),
         render=sim_utils.RenderCfg(),
     )

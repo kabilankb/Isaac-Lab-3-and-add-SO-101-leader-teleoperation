@@ -85,6 +85,9 @@ def get_asset_usd_path(asset_folder_path: str) -> str:
     Raises:
         FileNotFoundError: If no .usd file is found in the folder.
     """
+    # USD resolves relative references against the stage, not the CWD, so a relative
+    # --assets_root_path would spawn an empty prim; anchor it to the CWD here.
+    asset_folder_path = os.path.abspath(os.path.normpath(asset_folder_path))
     folder_name = os.path.basename(asset_folder_path)
     usd_path = os.path.join(asset_folder_path, f"{folder_name}.usd")
 

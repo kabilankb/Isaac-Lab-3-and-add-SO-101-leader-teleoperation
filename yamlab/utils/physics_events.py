@@ -7,7 +7,7 @@ After that, PhysX keeps its own copy of every material, so mutating
 behavior.
 
 The functions here use the PhysX tensor API
-(``root_physx_view.set_material_properties``) to write friction values directly
+(``root_view.set_material_properties``) to write friction values directly
 into PhysX's runtime buffers. These changes take effect on the next simulation
 step without any USD reload. IsaacLab's own ``randomize_rigid_body_material``
 (``deps/IsaacLab/source/isaaclab/isaaclab/envs/mdp/events.py``) uses the same
@@ -30,8 +30,26 @@ Two functions are exposed:
 from __future__ import annotations
 
 import torch
+import warp as wp
 
 from isaaclab.assets import Articulation, RigidObject
+
+
+def _get_material_properties(view) -> torch.Tensor:
+    """Read the view's (num_envs, num_shapes, 3) material buffer as an owned CPU torch tensor.
+
+    Isaac Sim 6's tensor API returns a ``wp.array`` (Isaac Sim 5 returned a torch tensor).
+    """
+    mats = view.get_material_properties()
+    return (wp.to_torch(mats) if isinstance(mats, wp.array) else mats).clone()
+
+
+def _set_material_properties(view, mats: torch.Tensor, env_ids_cpu: torch.Tensor) -> None:
+    """Write a full material buffer back for ``env_ids_cpu`` (Isaac Lab 3 passes warp arrays)."""
+    view.set_material_properties(
+        wp.from_torch(mats.contiguous(), dtype=wp.float32),
+        wp.from_torch(env_ids_cpu.to(torch.int32).contiguous(), dtype=wp.int32),
+    )
 from isaaclab.managers import SceneEntityCfg
 
 
@@ -50,7 +68,7 @@ def _get_body_shape_slices(env, asset, asset_name, body_names):
     if key in cache:
         return cache[key]
 
-    view = asset.root_physx_view
+    view = asset.root_view
     link_names = list(view.shared_metatype.link_names)
 
     num_shapes_per_body = []
@@ -109,7 +127,7 @@ def set_rigid_body_friction(
         verbose: If True, print a ``[FRICTION]`` log line per call.
     """
     asset: Articulation | RigidObject = env.scene[asset_cfg.name]
-    view = asset.root_physx_view
+    view = asset.root_view
 
     if env_ids is None:
         env_ids_cpu = torch.arange(env.num_envs, dtype=torch.long)
@@ -124,7 +142,7 @@ def set_rigid_body_friction(
     dyn = static_friction if dynamic_friction is None else dynamic_friction
 
     # get -> modify selected slice -> set back. Sparse set is not supported.
-    mats = view.get_material_properties().clone()
+    mats = _get_material_properties(view)
 
     if isinstance(asset, RigidObject):
         # Single-body rigid object: write to every collision shape.
@@ -142,7 +160,7 @@ def set_rigid_body_friction(
             )
         mats[env_ids_cpu, :, 0] = static_friction
         mats[env_ids_cpu, :, 1] = dyn
-        view.set_material_properties(mats, env_ids_cpu)
+        _set_material_properties(view, mats, env_ids_cpu)
         return
 
     # Articulation path - slice per requested body.
@@ -169,7 +187,7 @@ def set_rigid_body_friction(
         mats[env_ids_cpu, s:e, 0] = static_friction
         mats[env_ids_cpu, s:e, 1] = dyn
 
-    view.set_material_properties(mats, env_ids_cpu)
+    _set_material_properties(view, mats, env_ids_cpu)
 
 
 def _find_shape_indices_by_prim_substring(
@@ -203,7 +221,7 @@ def _find_shape_indices_by_prim_substring(
         return cache[asset_name]
 
     stage = omni.usd.get_context().get_stage()
-    view = asset.root_physx_view
+    view = asset.root_view
     matched_indices: list[int] = []
     global_offset = 0
 
@@ -273,7 +291,7 @@ def set_rigid_body_friction_by_prim_substring(
         verbose: log a ``[FRICTION]`` line per call.
     """
     asset: Articulation | RigidObject = env.scene[asset_cfg.name]
-    view = asset.root_physx_view
+    view = asset.root_view
 
     if env_ids is None:
         env_ids_cpu = torch.arange(env.num_envs, dtype=torch.long)
@@ -297,7 +315,7 @@ def set_rigid_body_friction_by_prim_substring(
         return
 
     dyn = static_friction if dynamic_friction is None else dynamic_friction
-    mats = view.get_material_properties().clone()
+    mats = _get_material_properties(view)
 
     if verbose:
         first_env = int(env_ids_cpu[0].item())
@@ -316,7 +334,7 @@ def set_rigid_body_friction_by_prim_substring(
         mats[env_ids_cpu, shape_idx, 0] = static_friction
         mats[env_ids_cpu, shape_idx, 1] = dyn
 
-    view.set_material_properties(mats, env_ids_cpu)
+    _set_material_properties(view, mats, env_ids_cpu)
 
 
 def set_articulation_body_mass(
@@ -345,8 +363,6 @@ def set_articulation_body_mass(
         verbose: print one ``[MASS]`` line per call.
     """
     asset: Articulation | RigidObject = env.scene[asset_cfg.name]
-    view = asset.root_physx_view
-
     if env_ids is None:
         env_ids_cpu = torch.arange(env.num_envs, dtype=torch.long)
     elif isinstance(env_ids, slice):
@@ -362,18 +378,22 @@ def set_articulation_body_mass(
     else:
         body_ids = torch.tensor(asset_cfg.body_ids, dtype=torch.int, device="cpu")
 
-    masses = view.get_masses().clone()
-    prev_masses = masses[env_ids_cpu[:, None], body_ids].clone()
-    masses[env_ids_cpu[:, None], body_ids] = float(mass)
-    view.set_masses(masses, env_ids_cpu)
+    # Isaac Lab 3 asset API (mirrors isaaclab.envs.mdp.events.randomize_rigid_body_mass): partial
+    # (len(env_ids), len(body_ids)) data through set_masses_index / set_inertias_index.
+    env_ids_dev = env_ids_cpu.to(asset.device)
+    body_ids_dev = body_ids.to(asset.device)
+    masses = asset.data.body_mass.torch.clone()
+    prev_masses = masses[env_ids_dev[:, None], body_ids_dev].clone()
+    new_masses = torch.full_like(prev_masses, float(mass))
+    asset.set_masses_index(masses=new_masses, body_ids=body_ids_dev, env_ids=env_ids_dev)
 
     if recompute_inertia:
         # Scale inertia by mass ratio (per-body). Avoid div-by-zero by clamping previous mass.
         ratios = (float(mass) / torch.clamp(prev_masses, min=1e-9))
-        inertias = view.get_inertias().clone()
-        # inertias shape: (num_envs, num_bodies, 9) for Articulation.
-        inertias[env_ids_cpu[:, None], body_ids] *= ratios.unsqueeze(-1)
-        view.set_inertias(inertias, env_ids_cpu)
+        inertias = asset.data.body_inertia.torch.clone()
+        # inertias shape: (num_envs, num_bodies, 9).
+        new_inertias = inertias[env_ids_dev[:, None], body_ids_dev] * ratios.unsqueeze(-1)
+        asset.set_inertias_index(inertias=new_inertias, body_ids=body_ids_dev, env_ids=env_ids_dev)
 
     if verbose:
         prev_first = float(prev_masses[0, 0].item()) if prev_masses.numel() > 0 else float("nan")

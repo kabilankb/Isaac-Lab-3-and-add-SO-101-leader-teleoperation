@@ -1,0 +1,42 @@
+{
+  "left_arm": {
+    "port": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5AE6085532-if00",
+    "ref_ticks": [
+      2183,
+      999,
+      3168,
+      2375,
+      2136,
+      3362
+    ],
+    "signs": {
+      "joint1": -1.0,
+      "joint2": 1.0,
+      "joint3": -1.0,
+      "joint4": -1.0,
+      "joint6": -1.0
+    },
+    "gripper_open_ticks": 4081,
+    "gripper_closed_ticks": 3378
+  },
+  "right_arm": {
+    "port": "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5A7C116959-if00",
+    "ref_ticks": [
+      2009,
+      1061,
+      3010,
+      2415,
+      1899,
+      2046
+    ],
+    "signs": {
+      "joint1": -1.0,
+      "joint2": 1.0,
+      "joint3": -1.0,
+      "joint4": -1.0,
+      "joint6": -1.0
+    },
+    "gripper_open_ticks": 3158,
+    "gripper_closed_ticks": 2046
+  }
+}

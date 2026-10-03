@@ -66,7 +66,7 @@ class ManipulationEnvCfg(ManagerBasedRLEnvCfg):
             #   yaw = atan2(2*(qw*qz + qx*qy), 1 - 2*(qy^2 + qz^2))
             if hasattr(self.scene, object_name):
                 asset_cfg = getattr(self.scene, object_name)
-                qw, qx, qy, qz = asset_cfg.init_state.rot
+                qx, qy, qz, qw = asset_cfg.init_state.rot  # Isaac Lab 3: XYZW
                 default_yaw = math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz))
             else:
                 default_yaw = 0.0

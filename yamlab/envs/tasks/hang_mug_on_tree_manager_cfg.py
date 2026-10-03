@@ -73,8 +73,8 @@ class HangMugOnTreeSceneCfg(YamBimanualSceneCfg):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
             pos=(ROBOT.table_position[0] + 0.075, ROBOT.table_position[1] + 0.15, ROBOT.table_position[2] + 1.0),
-            # 135 deg yaw default; quat = (cos(67.5 deg), 0, 0, sin(67.5 deg)).
-            rot=(0.3826834323650898, 0.0, 0.0, 0.9238795325112867),
+            # 135 deg yaw default; quat (xyzw) = (0, 0, sin(67.5 deg), cos(67.5 deg)).
+            rot=(0.0, 0.0, 0.9238795325112867, 0.3826834323650898),
         ),
     )
 
@@ -98,8 +98,8 @@ class HangMugOnTreeSceneCfg(YamBimanualSceneCfg):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
             pos=(ROBOT.table_position[0] + 0.105, ROBOT.table_position[1] - 0.3, ROBOT.table_position[2] + 1.0),
-            # 15 deg yaw default; quat = (cos(7.5 deg), 0, 0, sin(7.5 deg)).
-            rot=(0.9914448613738104, 0.0, 0.0, 0.13052619222005157),
+            # 15 deg yaw default; quat (xyzw) = (0, 0, sin(7.5 deg), cos(7.5 deg)).
+            rot=(0.0, 0.0, 0.13052619222005157, 0.9914448613738104),
         ),
     )
 

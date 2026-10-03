@@ -46,7 +46,7 @@ class PutPotOnCooktopSceneCfg(YamBimanualSceneCfg):
             # Z is updated by configure_assets_usd_paths from asset_size.json.
             # 90-degree clockwise rotation around z-axis: (cos(-pi/4), 0, 0, sin(-pi/4))
             pos=(ROBOT.table_position[0] + 0.06, ROBOT.table_position[1] + 0.15, ROBOT.table_position[2] + 1.0),
-            rot=(0.7071067811865476, 0.0, 0.0, -0.7071067811865476),
+            rot=(0.0, 0.0, -0.7071067811865476, 0.7071067811865476),  # xyzw, -90 deg yaw
         ),
     )
 
@@ -72,7 +72,7 @@ class PutPotOnCooktopSceneCfg(YamBimanualSceneCfg):
             # Z is updated by configure_assets_usd_paths from asset_size.json.
             # 90-degree clockwise rotation around z-axis: (cos(-pi/4), 0, 0, sin(-pi/4))
             pos=(ROBOT.table_position[0] + 0.055, ROBOT.table_position[1] - 0.3, ROBOT.table_position[2] + 1.0),
-            rot=(0.7071067811865476, 0.0, 0.0, -0.7071067811865476),
+            rot=(0.0, 0.0, -0.7071067811865476, 0.7071067811865476),  # xyzw, -90 deg yaw
         ),
     )
 

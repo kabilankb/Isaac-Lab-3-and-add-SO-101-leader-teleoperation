@@ -57,7 +57,7 @@ def get_arm_joint_pos(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
         torch.Tensor: float, shape (num_envs, 6); the first six joint positions.
     """
     asset = env.scene[asset_cfg.name]
-    return asset.data.joint_pos[:, :6]
+    return asset.data.joint_pos.torch[:, :6]
 
 
 def get_gripper_continuous_state(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
@@ -74,7 +74,7 @@ def get_gripper_continuous_state(env, asset_cfg: SceneEntityCfg) -> torch.Tensor
         torch.Tensor: float, shape (num_envs, 1); the finger joint position.
     """
     asset = env.scene[asset_cfg.name]
-    finger_pos = asset.data.joint_pos[:, 6]
+    finger_pos = asset.data.joint_pos.torch[:, 6]
     return finger_pos.unsqueeze(-1)
 
 

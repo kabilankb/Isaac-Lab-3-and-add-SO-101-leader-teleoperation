@@ -36,6 +36,8 @@ import torch
 
 from isaaclab.utils.math import quat_apply_inverse
 
+from yamlab.utils.lab3 import as_torch
+
 
 def _filter_index_for_target(filter_exprs, target_object: str) -> int:
     """Find the index of ``target_object`` along a contact sensor's filtered-object axis.
@@ -152,7 +154,7 @@ class Finger:
         filter_idx = self._filter_index(target_object)
         if filter_idx < 0:
             return torch.zeros(len(env_ids), device=device)
-        force_matrix = self._sensor.data.force_matrix_w                  # (N, B, M, 3)
+        force_matrix = as_torch(self._sensor.data.force_matrix_w)        # (N, B, M, 3)
         if force_matrix is None or force_matrix.shape[0] == 0 or force_matrix.shape[2] <= filter_idx:
             return torch.zeros(len(env_ids), device=device)
         force_vec = force_matrix[env_ids, :, filter_idx, :].sum(dim=1)   # (n, 3)
@@ -194,7 +196,7 @@ class Finger:
         filter_idx = self._filter_index(target_object)
         if filter_idx < 0:
             return fraction, valid
-        contact_pos = self._sensor.data.contact_pos_w                    # (N, B, M, 3); NaN if none
+        contact_pos = as_torch(self._sensor.data.contact_pos_w)          # (N, B, M, 3); NaN if none
         if contact_pos is None:
             return fraction, valid
 
@@ -203,7 +205,7 @@ class Finger:
 
         arm = self.scene[self.arm_name]
         body_idx = arm.data.body_names.index(self.link)
-        finger_pose = arm.data.body_link_pose_w[env_ids, body_idx, :]    # (n, 7) [pos, quat wxyz]
+        finger_pose = arm.data.body_link_pose_w.torch[env_ids, body_idx, :]  # (n, 7) [pos, quat xyzw]
         contact_local = quat_apply_inverse(finger_pose[:, 3:], contact_world - finger_pose[:, :3])
         tip, axis_unit, axis_len = self._tip_base_axis(device)
         fraction = ((contact_local - tip) * axis_unit).sum(dim=1) / axis_len   # 0 at tip, 1 at base

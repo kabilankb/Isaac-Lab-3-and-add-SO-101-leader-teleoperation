@@ -8,7 +8,7 @@ import isaaclab.utils.math as PoseUtils
 
 
 def euler2quat(roll_deg: float, pitch_deg: float, yaw_deg: float) -> torch.Tensor:
-    """Convert XYZ Euler angles in degrees to a quaternion in (w, x, y, z) order.
+    """Convert XYZ Euler angles in degrees to a quaternion in (x, y, z, w) order (Isaac Lab 3).
 
     Args:
         roll_deg (float): Roll angle in degrees.
@@ -16,7 +16,7 @@ def euler2quat(roll_deg: float, pitch_deg: float, yaw_deg: float) -> torch.Tenso
         yaw_deg (float): Yaw angle in degrees.
 
     Returns:
-        torch.Tensor: float quaternion, shape (4,), in (w, x, y, z) order.
+        torch.Tensor: float quaternion, shape (4,), in (x, y, z, w) order.
     """
     roll_rad = math.radians(roll_deg)
     pitch_rad = math.radians(pitch_deg)

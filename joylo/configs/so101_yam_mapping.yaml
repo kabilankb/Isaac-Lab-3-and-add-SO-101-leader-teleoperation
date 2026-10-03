@@ -1,0 +1,61 @@
+# SO-101 leader -> YAM follower joint mapping (joint-to-joint), used by
+# joylo/scripts/calibrate_so101.py and joylo/scripts/launch_so101.py.
+#
+# Each YAM joint i gets:  q_i = ref_deg + sign * scale * (SO-101 source angle - its calibrated rest angle)
+# The rest pose is YAM all-zero (arm folded: upper arm lying back, forearm folded forward);
+# calibrate_so101.py records the SO-101 servo positions with the leader held in that same pose,
+# and measures `sign` per joint by asking you to move it in the direction listed in `positive`
+# (directions derived from the joint axes in yamlab/robot/yam/arm/yam.usd). The measured signs are
+# stored in the calibration JSON and override the `sign` below.
+
+mapping:
+  yam_joints:
+    - name: joint1          # base yaw, axis +Z
+      source: shoulder_pan
+      positive: "swing the whole arm to ITS OWN LEFT (counter-clockwise seen from above)"
+      sign: 1.0
+      scale: 1.0
+      ref_deg: 0.0
+      limits_deg: [-150.0, 175.0]
+    - name: joint2          # shoulder pitch, axis +Y
+      source: shoulder_lift
+      positive: "LIFT the upper arm up from the folded rest pose"
+      sign: 1.0
+      scale: 1.0
+      ref_deg: 0.0
+      limits_deg: [0.0, 210.0]
+    - name: joint3          # elbow pitch, axis -Y
+      source: elbow_flex
+      positive: "UNFOLD the elbow (raise the forearm away from the upper arm)"
+      sign: 1.0
+      scale: 1.0
+      ref_deg: 0.0
+      limits_deg: [0.0, 210.0]
+    - name: joint4          # wrist pitch, axis -Y
+      source: wrist_flex
+      positive: "PITCH the gripper tip UP"
+      sign: 1.0
+      scale: 1.0
+      ref_deg: 0.0
+      limits_deg: [-90.0, 90.0]
+    - name: joint5          # wrist yaw, axis -Z -- the SO-101 has no matching joint
+      source: null
+      fixed_deg: 0.0
+      limits_deg: [-90.0, 90.0]
+    - name: joint6          # wrist roll, axis +X (along the gripper)
+      source: wrist_roll
+      positive: "ROLL the gripper CLOCKWISE as seen from behind it (looking toward the fingers)"
+      sign: 1.0
+      scale: 1.0
+      ref_deg: 0.0
+      limits_deg: [-120.0, 120.0]
+  # YAM finger joint positions (m), from yamlab/configs/robot/yam.yaml.
+  finger_open_pos: -0.0475
+  finger_closed_pos: 0.0
+
+# Teleop loop
+control_frequency: 30.0
+# On start, blend from the sim pose to the leader pose over this many seconds (avoids a jump).
+startup_blend_s: 1.5
+# Per-step joint change limit (rad) to damp servo read glitches.
+max_step_rad: 0.35

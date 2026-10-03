@@ -42,8 +42,8 @@ def make_put_pot_on_cooktop_mimic_env(**kwargs):
             physics_kwargs['enable_self_collisions'] = kwargs.pop('enable_self_collisions')
 
         for key, value in physics_kwargs.items():
-            if hasattr(cfg.sim.physx, key):
-                setattr(cfg.sim.physx, key, value)
+            if hasattr(cfg.sim.physics, key):
+                setattr(cfg.sim.physics, key, value)
 
         config_only_keys = ['assets_instance_paths', 'objects_randomization',
                            'init_joint_pos_randomization', 'teleoperation',
@@ -166,7 +166,7 @@ class PutPotOnCooktopMimicEnv(PutPotOnCooktopManager, YamMimicEnv):
             torch.Tensor: bool, shape (num_envs,).
         """
         pot = self.scene["pot"]
-        lifted = (pot.data.root_pos_w[:, 2] - self.pot_init_z) > 0.05
+        lifted = (pot.data.root_pos_w.torch[:, 2] - self.pot_init_z) > 0.05
 
         left_grasping, right_grasping = self.robot.is_grasping(
             normal_force_thresh=0.1, env_ids=None,
@@ -181,8 +181,8 @@ class PutPotOnCooktopMimicEnv(PutPotOnCooktopManager, YamMimicEnv):
         pot = self.scene["pot"]
         cooktop = self.scene["cooktop"]
 
-        pot_pos = pot.data.root_pos_w
-        cooktop_pos = cooktop.data.root_pos_w
+        pot_pos = pot.data.root_pos_w.torch
+        cooktop_pos = cooktop.data.root_pos_w.torch
 
         above = (pot_pos[:, 2] - cooktop_pos[:, 2]) > 0.05
         aligned = torch.norm(pot_pos[:, :2] - cooktop_pos[:, :2], dim=-1) < 0.10
@@ -207,11 +207,11 @@ class PutPotOnCooktopMimicEnv(PutPotOnCooktopManager, YamMimicEnv):
             obj = self.scene[obj_name]
 
             if isinstance(env_ids, slice):
-                obj_pos = obj.data.root_pos_w
-                obj_quat = obj.data.root_quat_w
+                obj_pos = obj.data.root_pos_w.torch
+                obj_quat = obj.data.root_quat_w.torch
             else:
-                obj_pos = obj.data.root_pos_w[env_ids]
-                obj_quat = obj.data.root_quat_w[env_ids]
+                obj_pos = obj.data.root_pos_w.torch[env_ids]
+                obj_quat = obj.data.root_quat_w.torch[env_ids]
 
             object_poses[obj_name] = PoseUtils.make_pose(
                 obj_pos,

@@ -45,7 +45,7 @@ class YamMimicEnv(ManagerBasedRLMimicEnv):
         arm = self.scene["left_arm"] if eef_name == "left_arm" else self.scene["right_arm"]
 
         eef_body_idx = arm.num_bodies - 1
-        eef_pose_w = arm.data.body_state_w[:, eef_body_idx, :7]  # (num_envs, 7)
+        eef_pose_w = arm.data.body_link_pose_w.torch[:, eef_body_idx, :]  # (num_envs, 7) [pos, quat xyzw]
 
         if isinstance(env_ids, slice):
             eef_pos = eef_pose_w[:, :3]
@@ -82,8 +82,8 @@ class YamMimicEnv(ManagerBasedRLMimicEnv):
         left_arm = self.scene["left_arm"]
         right_arm = self.scene["right_arm"]
 
-        left_joint_pos = left_arm.data.joint_pos[env_id, :6].clone()
-        right_joint_pos = right_arm.data.joint_pos[env_id, :6].clone()
+        left_joint_pos = left_arm.data.joint_pos.torch[env_id, :6].clone()
+        right_joint_pos = right_arm.data.joint_pos.torch[env_id, :6].clone()
 
         if "left_arm" in target_eef_pose_dict:
             target_pose = target_eef_pose_dict["left_arm"]
@@ -153,7 +153,7 @@ class YamMimicEnv(ManagerBasedRLMimicEnv):
         Returns:
             torch.Tensor: float, shape (6,), desired joint positions clamped to USD joint limits.
         """
-        base_pose_w = arm.data.root_pose_w[env_id]
+        base_pose_w = arm.data.root_pose_w.torch[env_id]
         base_pos_w = base_pose_w[:3].unsqueeze(0)
         base_quat_w = base_pose_w[3:7].unsqueeze(0)
 
@@ -161,7 +161,7 @@ class YamMimicEnv(ManagerBasedRLMimicEnv):
         eef_jacobi_idx = eef_body_idx - 1 if arm.is_fixed_base else eef_body_idx
         joint_ids = list(range(6))
 
-        ee_pose_w = arm.data.body_pose_w[env_id, eef_body_idx]
+        ee_pose_w = arm.data.body_pose_w.torch[env_id, eef_body_idx]
         ee_pos_w = ee_pose_w[:3].unsqueeze(0)
         ee_quat_w = ee_pose_w[3:7].unsqueeze(0)
         ee_pos_b, ee_quat_b = subtract_frame_transforms(
@@ -178,9 +178,10 @@ class YamMimicEnv(ManagerBasedRLMimicEnv):
         if torch.norm(target_pos_b - ee_pos_b) < 1e-3:
             return initial_joint_pos.clone()
 
-        jacobians_full = arm.root_physx_view.get_jacobians()
+        # Raw PhysX (COM-referenced) Jacobian, as root_physx_view.get_jacobians() returned in 2.x.
+        jacobians_full = arm.data.body_com_jacobian_w.torch
         jacobian = jacobians_full[env_id : env_id + 1, eef_jacobi_idx, :, joint_ids]  # (1, 6, 6)
-        joint_pos = arm.data.joint_pos[env_id : env_id + 1, joint_ids]                # (1, 6)
+        joint_pos = arm.data.joint_pos.torch[env_id : env_id + 1, joint_ids]                # (1, 6)
 
         joint_pos_des = compute_ik_jparse(
             ee_pos_b, ee_quat_b,
@@ -188,7 +189,7 @@ class YamMimicEnv(ManagerBasedRLMimicEnv):
             jacobian, joint_pos,
         )
 
-        joint_limits = arm.data.joint_pos_limits[env_id, :6, :]  # (6, 2)
+        joint_limits = arm.data.joint_pos_limits.torch[env_id, :6, :]  # (6, 2)
         return torch.clamp(joint_pos_des[0], min=joint_limits[:, 0], max=joint_limits[:, 1])
 
     def action_to_target_eef_pose(self, action: torch.Tensor) -> dict[str, torch.Tensor]:

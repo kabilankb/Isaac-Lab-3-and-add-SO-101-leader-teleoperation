@@ -219,6 +219,8 @@ def run_mimicgen_generation(env, args):
             async_components["action_queue"],
             async_components["info_pool"],
             async_components["event_loop"],
+            # Isaac Lab 3: exit (and re-raise) if every generation task finishes or fails.
+            data_gen_tasks=data_gen_tasks,
         )
     except asyncio.CancelledError:
         print("Tasks were cancelled.")
