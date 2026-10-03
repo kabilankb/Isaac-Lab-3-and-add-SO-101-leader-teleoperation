@@ -9,6 +9,11 @@ Vision-Language-Action Models via Embarrassingly Simple Modality Masking"
 The network itself is unchanged: same parameters, same checkpoint format, and at evaluation time
 it is exactly ACT. A checkpoint trained with M3 loads into a stock `ACTPolicy`.
 
+> **Status (2026-10-03): M3 showed no benefit over plain ACT on this task.** Both models
+> complete PutPotOnCooktop in about one episode in four. Plain ACT is the working baseline, and
+> the next step is more training data, not more masking. See [section 5](#5-results-2026-10-03)
+> and [section 6](#6-conclusion-and-next-steps).
+
 | File | Role |
 |---|---|
 | `yamlab/training/m3_act.py` | The masking: `M3Config`, `M3ACT`, `M3ACTPolicy` |
@@ -97,24 +102,56 @@ Masking flags: `--wrist-mask-prob`, `--query-mask-prob`, `--no-query-rescale`, `
 `--preload-frames` decodes all videos into memory once, which removes the per-sample video
 decoding that otherwise leaves the GPU idle.
 
-## 5. Results so far (2026-10-03)
+## 5. Results (2026-10-03)
 
 Both models were trained for 20,000 steps at batch size 32 on `yam_put_pot` (20 episodes,
 7,779 frames), one seed each, and evaluated on PutPotOnCooktop with `pot_000` / `cooktop_000`,
-plain scene, 25 actions executed per prediction, 50 episodes.
+plain scene, 25 actions executed per prediction, 900-step limit.
 
-| Final model | Full task succeeded | Pot lifted |
+Main comparison: 50 episodes each, headless, ten parallel environments.
+
+| Final model (step 20,000) | Full task succeeded | Pot lifted |
 |---|---|---|
 | ACT + M3 | 11 of 50 (22%) | 13 of 50 (26%) |
 | Plain ACT baseline | 12 of 50 (24%) | 15 of 50 (30%) |
 
-- M3 shows no measurable benefit on the plain scene.
-- The rates are slightly optimistic: the run used ten parallel environments and stopped at the
-  first 50 finished episodes, and successes finish sooner than timeouts.
+Including the later five-episode GUI runs of the same checkpoints, the totals are 19 of 70 (27%)
+for ACT + M3 and 12 of 56 (21%) for plain ACT. The difference is within chance.
+
+Notes on reading these numbers:
+
+- The 50-episode rates are slightly optimistic: the run stopped at the first 50 finished
+  episodes, and successes finish sooner than timeouts. The bias is the same for both models.
 - Five-episode runs are too noisy to rank models: the same checkpoint scored 4 of 5 and then
   0 of 5.
-- Not yet tested: randomized or cluttered scenes
-  (`--enable_domain_randomization --use_unseen_materials`), which is where the paper claims M3
-  helps.
-- The dataset is small (two demonstrations per pot and cooktop pair); more data is the most
-  likely way to raise the success rate for either model.
+- Both models fail the same way: the arms reach the pot handles but do not complete the grasp
+  and lift before the step limit.
+- Success rose with training for both models (near zero at step 10,000, most of the gain by
+  step 15,000).
+
+## 6. Conclusion and next steps
+
+M3 masking gave no measurable benefit for ACT on this task. Likely reasons:
+
+- **Model mismatch.** The paper's gains are on large vision-language-action models with language
+  input and dedicated action queries. ACT is a small model with no language, so only part of the
+  method applies.
+- **Test mismatch.** The paper's largest claimed gain is under clutter and changed scenes. Only
+  the plain scene was tested here.
+- **Data is the bottleneck.** With 20 demonstrations (two per pot and cooktop pair), masking
+  cannot make up for the shortage of examples.
+
+Next steps, in order:
+
+1. **Generate more data.** Going from 20 to a few hundred MimicGen episodes
+   (`scripts/pipeline/generate.py`, see `WORKFLOW.md`) is the change most likely to raise the
+   success rate, for any model.
+2. **Use plain ACT as the baseline** (`--no-m3`). It is simpler and performs the same.
+3. **Optional last check for M3:** evaluate both existing checkpoints on randomized scenes
+   (`--enable_domain_randomization --use_unseen_materials`). It needs no retraining and tests the
+   one condition where M3 is meant to help. If M3 is not clearly ahead there, drop it.
+
+The training script, the in-memory frame loading and the evaluation script are independent of
+M3 and carry over to whatever model is trained next.
+
+Trained checkpoint: [kabilanKB/yam_put_pot_act_m3](https://huggingface.co/kabilanKB/yam_put_pot_act_m3).
