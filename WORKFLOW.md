@@ -89,7 +89,7 @@ demonstrator. Here MimicGen fills that role, starting from real human demos.
 
 | What | Where (this laptop) |
 |---|---|
-| Code | `~/yamlab6` (Isaac Sim 6 port of YAMLab; see `README_ISAACSIM6.md`) |
+| Code | `~/yamlab6` (Isaac Sim 6 port of YAMLab; see `README.md`) |
 | Conda env | `env_yamlab6`: Python 3.12, Isaac Sim 6.0.1, Isaac Lab 3 (`~/IsaacLab`), YAMLab's LeRobot v2.0 fork |
 | Data | `~/yamlab6/yamlab_datasets` → `~/yamlab/yamlab_datasets` (annotated demos, objects, HDRIs, materials) |
 | Hugging Face login | `huggingface-cli login` (token is shared across envs) |
