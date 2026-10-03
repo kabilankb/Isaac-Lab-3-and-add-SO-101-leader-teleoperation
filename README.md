@@ -1,8 +1,7 @@
 # YAMLab on Isaac Sim 6: with SO-101 leader-arm teleoperation
 
 
-https://github.com/user-attachments/assets/97efba74-2eac-42aa-8ff9-2109b182fd30
-
+https://github.com/user-attachments/assets/1b32c6f0-4182-4329-9fbb-f77f9a6b729c 
 
 This checkout (`~/yamlab6`, branch `isaacsim6-port`) is
 [ARISE-Initiative/yamlab](https://github.com/ARISE-Initiative/yamlab), a bimanual YAM robot
